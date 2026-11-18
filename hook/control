@@ -1,0 +1,9 @@
+Package: com.operator.hookkit
+Name: HookKit
+Version: 1.0.0
+Architecture: iphoneos-arm
+Description: 目标 App 注入钩子（越狱用）
+Maintainer: operator
+Author: operator
+Section: Tweaks
+Depends: mobilesubstrate

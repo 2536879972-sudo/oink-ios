@@ -1,0 +1,61 @@
+# XcodeGen 工程描述
+# 本地：  brew install xcodegen && xcodegen generate
+# 云：    GitHub Actions 里自动执行，见 .github/workflows/build-oink.yml
+
+name: Oink
+options:
+  bundleIdPrefix: com.operator
+  deploymentTarget:
+    iOS: "16.0"
+  createIntermediateGroups: true
+  groupSortPosition: top
+
+settings:
+  base:
+    SWIFT_VERSION: "5.9"
+    IPHONEOS_DEPLOYMENT_TARGET: "16.0"
+    ENABLE_USER_SCRIPT_SANDBOXING: NO
+    SWIFT_EMIT_LOC_STRINGS: NO
+
+targets:
+  Oink:
+    type: application
+    platform: iOS
+
+    sources:
+      - path: Sources
+
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.operator.oink
+        PRODUCT_NAME: Oink
+        MARKETING_VERSION: "1.0"
+        CURRENT_PROJECT_VERSION: "1"
+        TARGETED_DEVICE_FAMILY: "1,2"
+        GENERATE_INFOPLIST_FILE: NO
+        # 关键：CI 上没有证书，必须显式关签名才能出未签名产物
+        CODE_SIGNING_ALLOWED: NO
+        CODE_SIGNING_REQUIRED: NO
+        CODE_SIGN_IDENTITY: ""
+        SUPPORTS_MACCATALYST: NO
+
+    info:
+      path: Generated/Info.plist
+      properties:
+        CFBundleDisplayName: 小码酱
+        CFBundleShortVersionString: "1.0"
+        CFBundleVersion: "1"
+        # 缺这一项会在新系统上黑屏 / 尺寸错乱
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+        UISupportedInterfaceOrientations~ipad:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationPortraitUpsideDown
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        # 允许自建/局域网 http 接口，用官方 https 也不会冲突
+        NSAppTransportSecurity:
+          NSAllowsArbitraryLoads: true
+        ITSAppUsesNonExemptEncryption: false
+        LSRequiresIPhoneOS: true
