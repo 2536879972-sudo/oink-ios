@@ -316,7 +316,7 @@ struct SessionListView: View {
                             Spacer()
                             if c.id == store.currentId {
                                 Image(systemName: "checkmark")
-                                    .foregroundStyle(.accent)
+                                    .foregroundStyle(Color.accentColor)
                             }
                         }
                     }
