@@ -1,4 +1,4 @@
-﻿name: build-oink # v2
+name: build-ios
 
 on:
   workflow_dispatch:
@@ -15,28 +15,28 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: 閫夋嫨 Xcode
+      - name: Select Xcode
         run: |
-          ls /Applications | grep -i xcode || true
           sudo xcode-select -s /Applications/Xcode_15.4.app 2>/dev/null \
             || sudo xcode-select -s /Applications/Xcode.app
           xcodebuild -version
 
-      - name: 瀹夎 XcodeGen
+      - name: Install XcodeGen
         run: |
           if ! command -v xcodegen >/dev/null 2>&1; then
             brew install xcodegen
           fi
           xcodegen --version
 
-      - name: 鐢熸垚宸ョ▼
+      - name: Generate project
         working-directory: app
         run: |
           xcodegen generate
           ls -la
           xcodebuild -list -project Aishijie.xcodeproj
 
-      - name: 缂栬瘧锛堟湭绛惧悕锛?        working-directory: app
+      - name: Build unsigned archive
+        working-directory: app
         run: |
           set -o pipefail
           xcodebuild \
@@ -54,7 +54,7 @@ jobs:
             DEVELOPMENT_TEAM="" \
             ONLY_ACTIVE_ARCH=NO
 
-      - name: 鎵撳寘 IPA
+      - name: Package IPA
         run: |
           set -euo pipefail
           cd "$RUNNER_TEMP"
@@ -63,15 +63,13 @@ jobs:
           test -n "$APP"
           mkdir -p Payload
           cp -R "$APP" Payload/
-          # 鍏ㄨ兘绛惧彧璁ゆ牴鐩綍涓?Payload/ 鐨?zip
           zip -qry Aishijie.ipa Payload
           unzip -l Aishijie.ipa | head -25
-          # 纭涓讳簩杩涘埗鏄湭绛惧悕鐨?          xcrun codesign -dv Aishijie.xcarchive/Products/Applications/*.app 2>&1 | head -5 || true
 
-      - name: 涓婁紶
+      - name: Upload
         uses: actions/upload-artifact@v4
         with:
-          name: oink-unsigned-ipa
+          name: aishijie-unsigned-ipa
           path: ${{ runner.temp }}/Aishijie.ipa
           if-no-files-found: error
           retention-days: 30
