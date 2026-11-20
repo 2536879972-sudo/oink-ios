@@ -102,7 +102,7 @@ struct SettingsView: View {
 
                 Section {
                     Button {
-                        store.clear()
+                        store.clearCurrent()
                         dismiss()
                     } label: {
                         Text("清空当前会话").foregroundStyle(.red)

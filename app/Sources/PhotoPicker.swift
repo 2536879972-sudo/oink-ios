@@ -32,7 +32,7 @@ struct PhotoPicker: UIViewControllerRepresentable {
                 guard let img = obj as? UIImage else { return }
                 let scaled = Self.downscale(img, maxSide: 1280)
                 guard let data = scaled.jpegData(compressionQuality: 0.82) else { return }
-                DispatchQueue.main.async { parent.onPick(data) }
+                DispatchQueue.main.async { self.parent.onPick(data) }
             }
         }
 
