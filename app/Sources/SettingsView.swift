@@ -40,6 +40,58 @@ struct SettingsView: View {
                 }
 
                 Section {
+                    ForEach(ModelPreset.all, id: \.id) { p in
+                        Button {
+                            store.baseURL = p.base
+                            store.model = p.model
+                        } label: {
+                            HStack(alignment: .top) {
+                                VStack(alignment: .leading, spacing: 3) {
+                                    Text(p.name)
+                                        .foregroundStyle(.primary)
+                                    Text(p.model)
+                                        .font(.caption2)
+                                        .foregroundStyle(.secondary)
+                                }
+                                Spacer()
+                                if store.model == p.model && store.baseURL == p.base {
+                                    Image(systemName: "checkmark")
+                                        .foregroundStyle(Color.accentColor)
+                                }
+                            }
+                        }
+                    }
+                } header: {
+                    Text("快速切换")
+                } footer: {
+                    Text("点一下自动填好 Base URL 和模型名。Dolphin 无内容审核，需配合 OpenRouter。")
+                }
+
+                Section {
+                    HStack {
+                        Text("温度")
+                        Spacer()
+                        Text(String(format: "%.2f", store.temperature))
+                            .font(.system(.body, design: .monospaced))
+                            .foregroundStyle(.secondary)
+                    }
+                    Slider(value: $store.temperature, in: 0.0...1.2, step: 0.05)
+                    HStack(spacing: 10) {
+                        ForEach([0.3, 0.7, 0.95, 1.1], id: \.self) { v in
+                            Button(String(format: "%.2f", v)) {
+                                store.temperature = v
+                            }
+                            .buttonStyle(.bordered)
+                            .font(.caption)
+                        }
+                    }
+                } header: {
+                    Text("参数")
+                } footer: {
+                    Text("越低越保守稳定，越高越发散。角色扮演建议 0.95~1.10，技术问答建议 0.3~0.7。")
+                }
+
+                Section {
                     LabeledContent("实际请求地址") {
                         Text(APIClient.endpoint(from: store.baseURL)?.absoluteString ?? "无效")
                             .font(.caption2)

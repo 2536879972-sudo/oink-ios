@@ -1,0 +1,25 @@
+name: runner-probe2
+
+on:
+  workflow_dispatch:
+
+jobs:
+  mac13:
+    runs-on: macos-13
+    steps:
+      - run: echo "macos-13 OK" && xcodebuild -version
+
+  mac15:
+    runs-on: macos-15
+    steps:
+      - run: echo "macos-15 OK" && xcodebuild -version
+
+  maclatest:
+    runs-on: macos-latest
+    steps:
+      - run: echo "macos-latest OK" && xcodebuild -version
+
+  mac12:
+    runs-on: macos-12
+    steps:
+      - run: echo "macos-12 OK" && xcodebuild -version

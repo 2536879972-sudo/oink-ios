@@ -6,11 +6,13 @@ struct ChatMessage: Identifiable, Codable, Equatable {
     let id: UUID
     var role: String          // "user" / "assistant" / "system"
     var content: String
+    var images: [Data]?       // 图片（JPEG）
 
-    init(id: UUID = UUID(), role: String, content: String) {
+    init(id: UUID = UUID(), role: String, content: String, images: [Data]? = nil) {
         self.id = id
         self.role = role
         self.content = content
+        self.images = images
     }
 }
 
@@ -23,21 +25,42 @@ enum APIError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .badURL:
-            return "接口地址无效，检查 Base URL"
-        case .http(let code, let body):
-            return "HTTP \(code)\n\(body.prefix(400))"
-        case .badResponse:
-            return "服务器返回格式异常"
+        case .badURL:               return "接口地址无效，检查 Base URL"
+        case .http(let c, let b):   return "HTTP \(c)\n\(b.prefix(400))"
+        case .badResponse:          return "服务器返回格式异常"
         }
     }
 }
 
 // MARK: - 线格式
 
+/// 支持纯文本或多模态 parts 的 content
+private enum WireContent: Encodable {
+    case text(String)
+    case parts([Part])
+
+    struct Part: Encodable {
+        let type: String          // "text" / "image_url"
+        let text: String?
+        let image_url: ImageURL?
+
+        struct ImageURL: Encodable {
+            let url: String
+        }
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.singleValueContainer()
+        switch self {
+        case .text(let t):   try c.encode(t)
+        case .parts(let ps): try c.encode(ps)
+        }
+    }
+}
+
 private struct WireMessage: Encodable {
     let role: String
-    let content: String
+    let content: WireContent
 }
 
 private struct WireRequest: Encodable {
@@ -51,6 +74,7 @@ private struct StreamChunk: Decodable {
     struct Choice: Decodable {
         struct Delta: Decodable {
             let content: String?
+            let reasoning_content: String?
         }
         let delta: Delta?
         let finish_reason: String?
@@ -62,8 +86,6 @@ private struct StreamChunk: Decodable {
 
 struct APIClient {
 
-    /// OpenAI 兼容的 /chat/completions 流式调用。
-    /// 逐条 yield 增量文本，结束时 finish。
     func streamChat(baseURL: String,
                     apiKey: String,
                     model: String,
@@ -73,9 +95,7 @@ struct APIClient {
         AsyncThrowingStream { continuation in
             let task = Task {
                 do {
-                    guard let url = Self.endpoint(from: baseURL) else {
-                        throw APIError.badURL
-                    }
+                    guard let url = Self.endpoint(from: baseURL) else { throw APIError.badURL }
 
                     var req = URLRequest(url: url)
                     req.httpMethod = "POST"
@@ -85,9 +105,30 @@ struct APIClient {
                     req.setValue("text/event-stream", forHTTPHeaderField: "Accept")
                     req.setValue("no-cache", forHTTPHeaderField: "Cache-Control")
 
+                    let wire: [WireMessage] = messages.map { m in
+                        if let imgs = m.images, !imgs.isEmpty {
+                            var parts: [WireContent.Part] = []
+                            let txt = m.content.trimmingCharacters(in: .whitespacesAndNewlines)
+                            if !txt.isEmpty {
+                                parts.append(.init(type: "text", text: txt, image_url: nil))
+                            }
+                            for d in imgs {
+                                let b64 = d.base64EncodedString()
+                                parts.append(.init(
+                                    type: "image_url",
+                                    text: nil,
+                                    image_url: .init(url: "data:image/jpeg;base64,\(b64)")
+                                ))
+                            }
+                            return WireMessage(role: m.role, content: .parts(parts))
+                        } else {
+                            return WireMessage(role: m.role, content: .text(m.content))
+                        }
+                    }
+
                     let payload = WireRequest(
                         model: model,
-                        messages: messages.map { WireMessage(role: $0.role, content: $0.content) },
+                        messages: wire,
                         stream: true,
                         temperature: temperature
                     )
@@ -95,9 +136,7 @@ struct APIClient {
 
                     let (bytes, response) = try await URLSession.shared.bytes(for: req)
 
-                    guard let http = response as? HTTPURLResponse else {
-                        throw APIError.badResponse
-                    }
+                    guard let http = response as? HTTPURLResponse else { throw APIError.badResponse }
                     guard (200..<300).contains(http.statusCode) else {
                         var raw = ""
                         for try await line in bytes.lines { raw += line }
@@ -106,8 +145,7 @@ struct APIClient {
 
                     for try await line in bytes.lines {
                         guard line.hasPrefix("data:") else { continue }
-                        let body = String(line.dropFirst(5))
-                            .trimmingCharacters(in: .whitespacesAndNewlines)
+                        let body = String(line.dropFirst(5)).trimmingCharacters(in: .whitespacesAndNewlines)
                         if body.isEmpty { continue }
                         if body == "[DONE]" { break }
                         guard let data = body.data(using: .utf8) else { continue }
@@ -122,13 +160,10 @@ struct APIClient {
                     continuation.finish(throwing: error)
                 }
             }
-
             continuation.onTermination = { _ in task.cancel() }
         }
     }
 
-    /// 把用户填的 Base URL 规整成完整 endpoint。
-    /// "api.deepseek.com/v1" -> "https://api.deepseek.com/v1/chat/completions"
     static func endpoint(from base: String) -> URL? {
         var s = base.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !s.isEmpty else { return nil }
@@ -136,9 +171,7 @@ struct APIClient {
             s = "https://" + s
         }
         while s.hasSuffix("/") { s.removeLast() }
-        if !s.hasSuffix("/chat/completions") {
-            s += "/chat/completions"
-        }
+        if !s.hasSuffix("/chat/completions") { s += "/chat/completions" }
         return URL(string: s)
     }
 }
