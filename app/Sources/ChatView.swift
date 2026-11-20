@@ -300,7 +300,7 @@ struct SessionListView: View {
     var body: some View {
         NavigationStack {
             List {
-                ForEach(store.conversations, id: \.id) { c in
+                ForEach(store.conversations, id: \.id) { (c: Conversation) in
                     Button {
                         store.select(c.id)
                         dismiss()
